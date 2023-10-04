@@ -24,8 +24,15 @@ step = _{
 
     // deprecated: maintainer
 
+    // start custom Hermitfile steps
+    link |
+    map | 
+    net |
+    env_pwd_is_host_cwd |
+    env_exe_name_is_host_exe_name |
+    
     // catchall for unsupported directives
-    misc
+    misc 
   )
 }
 
@@ -157,3 +164,10 @@ env = { ^"env" ~ (env_single | env_pairs) }
 misc_instruction = @{ ASCII_ALPHA+ }
 misc_arguments = @{ any_breakable }
 misc = { misc_instruction ~ misc_arguments }
+
+// custom Hermitfile identifiers
+link = { ^"link" ~ arg_ws ~ cmd_exec }
+map = { ^"map" ~ arg_ws ~ cmd_exec }
+net = { ^"net" ~ arg_ws ~ cmd_exec }
+env_pwd_is_host_cwd = { ^"env_pwd_is_host_cwd" }
+env_exe_name_is_host_exe_name = { ^"env_exe_name_is_host_exe_name" }

@@ -1,0 +1,16 @@
+from: mod.wasm
+link: 
+  - dep1.wasm
+  - dep2.wasm
+  - https://wasmstore:6384/api/v1/module/sqlite3.wasm:{SHA256}
+map:
+  - /.wasm/etc:/etc
+  - stdin:stdin
+  - stdout:stdout
+net:
+  - "*.github.com"
+  - api.reddit.com
+  - localhost:6379
+entrypoint: 
+  - count_vowels
+  - this is a test

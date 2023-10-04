@@ -8,29 +8,29 @@ use crate::parser::*;
 use crate::util::*;
 use crate::Span;
 
-/// A Dockerfile [`ENTRYPOINT` instruction][entrypoint].
+/// A Dockerfile [`CMD` instruction][cmd].
 ///
-/// An entrypoint may be defined as either a single string (to be run in the
+/// An command may be defined as either a single string (to be run in the
 /// default shell), or a list of strings (to be run directly).
 ///
-/// [entrypoint]: https://docs.docker.com/engine/reference/builder/#entrypoint
+/// [cmd]: https://docs.docker.com/engine/reference/builder/#cmd
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct EntrypointInstruction {
+pub struct NetInstruction {
     pub span: Span,
     pub expr: ShellOrExecExpr,
 }
 
-impl EntrypointInstruction {
-    pub(crate) fn from_record(record: Pair) -> Result<EntrypointInstruction> {
+impl NetInstruction {
+    pub(crate) fn from_record(record: Pair) -> Result<NetInstruction> {
         let span = Span::from_pair(&record);
         let field = record.into_inner().next().unwrap();
 
         match field.as_rule() {
-            Rule::entrypoint_exec => Ok(EntrypointInstruction {
+            Rule::cmd_exec => Ok(NetInstruction {
                 span,
                 expr: ShellOrExecExpr::Exec(parse_string_array(field)?),
             }),
-            Rule::entrypoint_shell => Ok(EntrypointInstruction {
+            Rule::cmd_shell => Ok(NetInstruction {
                 span,
                 expr: ShellOrExecExpr::Shell(parse_any_breakable(field)?),
             }),
@@ -63,16 +63,16 @@ impl EntrypointInstruction {
     }
 }
 
-impl TryFrom<Instruction> for EntrypointInstruction {
+impl<'a> TryFrom<&'a Instruction> for &'a NetInstruction {
     type Error = Error;
 
-    fn try_from(instruction: Instruction) -> std::result::Result<Self, Self::Error> {
-        if let Instruction::Entrypoint(e) = instruction {
-            Ok(e)
+    fn try_from(instruction: &'a Instruction) -> std::result::Result<Self, Self::Error> {
+        if let Instruction::Net(n) = instruction {
+            Ok(n)
         } else {
             Err(Error::ConversionError {
                 from: format!("{:?}", instruction),
-                to: "EntrypointInstruction".into(),
+                to: "NetInstruction".into(),
             })
         }
     }
@@ -88,62 +88,39 @@ mod tests {
     use crate::Span;
 
     #[test]
-    fn entrypoint_basic() -> Result<()> {
+    fn cmd_basic() -> Result<()> {
         assert_eq!(
-            parse_single(r#"entrypoint echo "hello world""#, Rule::entrypoint)?
-                .as_entrypoint()
+            parse_single(r#"CMD echo "hello world""#, Rule::cmd)?
+                .as_cmd()
                 .unwrap()
                 .as_shell()
                 .unwrap(),
-            &BreakableString::new((11, 29)).add_string((11, 29), "echo \"hello world\"")
+            &BreakableString::new((4, 22)).add_string((4, 22), "echo \"hello world\"")
         );
 
         assert_eq!(
-            parse_single(r#"entrypoint ["echo", "hello world"]"#, Rule::entrypoint)?,
-            EntrypointInstruction {
-                span: Span::new(0, 34),
-                expr: ShellOrExecExpr::Exec(StringArray {
-                    span: Span::new(11, 34),
-                    elements: vec![
-                        SpannedString {
-                            span: Span::new(12, 18),
-                            content: "echo".to_string(),
-                        },
-                        SpannedString {
-                            span: Span::new(20, 33),
-                            content: "hello world".to_string(),
-                        }
-                    ]
-                })
-            }
-            .into()
+            parse_single(r#"CMD echo "hello world""#, Rule::cmd)?
+                .as_cmd()
+                .unwrap()
+                .as_shell()
+                .unwrap()
+                .to_string(),
+            "echo \"hello world\""
         );
 
-        Ok(())
-    }
-
-    #[test]
-    fn entrypoint_multiline_exec() -> Result<()> {
         assert_eq!(
-            parse_single(
-                r#"entrypoint\
-        [\
-        "echo", \
-        "hello world"\
-        ]"#,
-                Rule::entrypoint
-            )?,
-            EntrypointInstruction {
-                span: Span::new(0, 73),
+            parse_single(r#"cmd ["echo", "hello world"]"#, Rule::cmd)?,
+            NetInstruction {
+                span: Span::new(0, 27),
                 expr: ShellOrExecExpr::Exec(StringArray {
-                    span: Span::new(20, 73),
+                    span: Span::new(4, 27),
                     elements: vec![
                         SpannedString {
-                            span: Span::new(31, 37),
+                            span: Span::new(5, 11),
                             content: "echo".to_string(),
                         },
                         SpannedString {
-                            span: Span::new(49, 62),
+                            span: Span::new(13, 26),
                             content: "hello world".to_string(),
                         }
                     ]
@@ -156,37 +133,88 @@ mod tests {
     }
 
     #[test]
-    fn entrypoint_multiline_shell() -> Result<()> {
+    fn cmd_multiline_exec() -> Result<()> {
         assert_eq!(
             parse_single(
-                indoc!(
-                    r#"
-        entrypoint echo \
-          "hello world"
-      "#
-                ),
-                Rule::entrypoint
-            )?
-            .as_entrypoint()
-            .unwrap()
-            .as_shell()
-            .unwrap(),
-            &BreakableString::new((11, 33))
-                .add_string((11, 16), "echo ")
-                .add_string((18, 33), "  \"hello world\"")
+                r#"cmd\
+        [\
+        "echo", \
+        "hello world"\
+        ]"#,
+                Rule::cmd
+            )?,
+            NetInstruction {
+                span: Span::new(0, 66),
+                expr: ShellOrExecExpr::Exec(StringArray {
+                    span: Span::new(13, 66),
+                    elements: vec![
+                        SpannedString {
+                            span: Span::new(24, 30),
+                            content: "echo".to_string(),
+                        },
+                        SpannedString {
+                            span: Span::new(42, 55),
+                            content: "hello world".to_string(),
+                        }
+                    ]
+                }),
+            }
+            .into()
         );
 
         Ok(())
     }
 
     #[test]
-    fn entrypoint_multiline_large() -> Result<()> {
+    fn cmd_multiline_shell() -> Result<()> {
+        assert_eq!(
+            parse_single(
+                indoc!(
+                    r#"
+        cmd echo \
+          "hello world"
+      "#
+                ),
+                Rule::cmd
+            )?
+            .as_cmd()
+            .unwrap()
+            .as_shell()
+            .unwrap(),
+            &BreakableString::new((4, 26))
+                .add_string((4, 9), "echo ")
+                .add_string((11, 26), "  \"hello world\"")
+        );
+
+        assert_eq!(
+            parse_single(
+                indoc!(
+                    r#"
+        cmd echo \
+          "hello world"
+      "#
+                ),
+                Rule::cmd
+            )?
+            .as_cmd()
+            .unwrap()
+            .as_shell()
+            .unwrap()
+            .to_string(),
+            "echo   \"hello world\""
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn cmd_multiline_shell_large() -> Result<()> {
         // note: the trailing `\` at the end is _almost_ nonsense and generates a
         // warning from docker
         let ins = parse_single(
             indoc!(
                 r#"
-        entrypoint set -x && \
+        cmd set -x && \
             # lorem ipsum
             echo "hello world" && \
             # dolor sit amet,
@@ -199,28 +227,28 @@ mod tests {
             && echo baz \
             # et dolore magna aliqua."#
             ),
-            Rule::entrypoint,
+            Rule::cmd,
         )?
-        .into_entrypoint()
+        .into_cmd()
         .unwrap()
         .into_shell()
         .unwrap();
 
         assert_eq!(
             ins,
-            BreakableString::new((11, 273))
-                .add_string((11, 21), "set -x && ")
-                .add_comment((27, 40), "# lorem ipsum")
-                .add_string((41, 67), "    echo \"hello world\" && ")
-                .add_comment((73, 90), "# dolor sit amet,")
-                .add_comment((95, 110), "# consectetur \\")
-                .add_comment((115, 135), "# adipiscing elit, \\")
-                .add_comment((140, 156), "# sed do eiusmod")
-                .add_comment((161, 190), "# tempor incididunt ut labore")
-                .add_string((191, 207), "    echo foo && ")
-                .add_string((209, 224), "    echo 'bar' ")
-                .add_string((226, 242), "    && echo baz ")
-                .add_comment((248, 273), "# et dolore magna aliqua.")
+            BreakableString::new((4, 266))
+                .add_string((4, 14), "set -x && ")
+                .add_comment((20, 33), "# lorem ipsum")
+                .add_string((34, 60), "    echo \"hello world\" && ")
+                .add_comment((66, 83), "# dolor sit amet,")
+                .add_comment((88, 103), "# consectetur \\")
+                .add_comment((108, 128), "# adipiscing elit, \\")
+                .add_comment((133, 149), "# sed do eiusmod")
+                .add_comment((154, 183), "# tempor incididunt ut labore")
+                .add_string((184, 200), "    echo foo && ")
+                .add_string((202, 217), "    echo 'bar' ")
+                .add_string((219, 235), "    && echo baz ")
+                .add_comment((241, 266), "# et dolore magna aliqua.")
         );
 
         assert_eq!(
