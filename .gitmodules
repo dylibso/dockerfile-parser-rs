@@ -1,0 +1,3 @@
+[submodule "third-party/pest"]
+	path = third-party/pest
+	url = https://github.com/dylibso/pest.git
