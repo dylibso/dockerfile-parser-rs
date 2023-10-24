@@ -18,12 +18,28 @@ version = "0.1.0"
 circle-ci = { repository = "HewlettPackard/dockerfile-parser-rs", branch = "master" }
 
 [dependencies]
-pest = "2.1"
-pest_derive = "2.1"
 snafu = "0.6"
 enquote = "1.1"
 regex = "1.5"
 lazy_static = "1.4"
+
+[dependencies.pest]
+version = "2.1"
+default-features = false
+features = ["std"]
+path = "third-party/pest/pest"
+
+[dependencies.pest_derive]
+version = "2.1"
+path = "third-party/pest/derive"
+
+# regex uses memchr which usually pulls in simd
+# but in this case appears not too.
+# uncomment below to avoid pulling in memchr
+#[dependencies.regex]
+#version = "1.5"
+#default-features = false
+#features = []
 
 [dev-dependencies]
 indoc = "1.0"

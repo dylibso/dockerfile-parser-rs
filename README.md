@@ -8,6 +8,12 @@ performing static analysis, writing linters, and creating automated tooling
 around Dockerfiles. It uses a proper grammar and can provide useful syntax
 errors in addition to a full syntax tree.
 
+## Setup
+
+`git submodule update --init --recursive`
+
+`cd third-party/pest && cargo build --package pest_bootstrap`
+
 ## Limitations
 
  * Buildkit parser directives are not handled at all.
